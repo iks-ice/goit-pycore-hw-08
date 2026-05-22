@@ -45,7 +45,15 @@ def add_birthday(name: str, birthday: str, book: AddressBook):
 @input_error
 def show_birthday(name: str, book: AddressBook):
     record = book.find(name)
-    print(record.birthday)
+    bd = record.birthday
+    if bd:
+        print(f"{name}'s birthday is {bd}")
+    else:
+        answer = input(f"Would you like to set {name}'s birthday?(y/n): ")
+        if answer.lower() == "y":
+            bd = input(f"Enter birthday in DD.MM.YYYY format: ")
+            record.add_birthday(bd)
+            print(f"{name}'s birthday set to {record.birthday}")
 
 @input_error
 def birthdays(book: AddressBook):
