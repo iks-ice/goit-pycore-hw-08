@@ -1,5 +1,8 @@
 from utility_classes import AddressBook, Record
 from mock import mock
+from storagestrategy import FileStorage
+from sys import exit
+from get_path import get_path
 
 
 def parse_input(input: str):
@@ -18,8 +21,12 @@ def input_error(func):
 def add(name: str, phone: str, book: AddressBook):
     if not all((name, phone)):
         raise ValueError("Missing required argements: add <name> <phone>")
-    record = Record(name).add_phone(phone)
-    book.add_record(record)
+    record = book.find(name)
+    if record:
+        record.add_phone(phone)
+    else:
+        record = Record(name).add_phone(phone)
+        book.add_record(record)
 
 @input_error
 def change(name: str, phone: str, changed_phone: str, book: AddressBook):
@@ -41,6 +48,13 @@ def add_birthday(name: str, birthday: str, book: AddressBook):
         raise ValueError("Missing required argements: add-birthday <name> <birthday>")
     record = book.find(name)
     record.add_birthday(birthday)
+    book.save()
+
+@input_error
+def delete_record(name: str, book: AddressBook):
+    if not name:
+        raise ValueError("Missing required argements: del <name>")
+    book.delete(name)
 
 @input_error
 def show_birthday(name: str, book: AddressBook):
@@ -55,22 +69,30 @@ def show_birthday(name: str, book: AddressBook):
             record.add_birthday(bd)
             print(f"{name}'s birthday set to {record.birthday}")
 
-@input_error
-def birthdays(book: AddressBook):
-    bd_list = book.get_upcoming_birthdays()
-    for bd in bd_list:
-        print(bd)
+def close_app(book: AddressBook):
+    answer = input("\nWould you like to save data?(y/n): ")
+    if answer == "y":
+        book.save()
+    print("Good bye!")
+    exit(0)
 
-def main():
-    book = AddressBook()
+def unexpected_exit(func):
+    def wrapper(book):
+        try:
+            func(book)
+        except KeyboardInterrupt as e:
+           close_app(book)
+    return wrapper
+
+@unexpected_exit
+def main(book: AddressBook):
     print("Welcome to the assistant bot!")
     while True:
         user_input = input("Enter a command: ")
         command, *args = parse_input(user_input)
 
         if command in ["close", "exit"]:
-            print("Good bye!")
-            break
+            close_app(book)
 
         elif command == "hello":
             print("How can I help you?")
@@ -80,6 +102,9 @@ def main():
 
         elif command == "change":
             change(*args, book)
+
+        elif command == "del":
+            delete_record(*args, book)
 
         elif command == "phone":
             show_phone(*args, book)
@@ -94,9 +119,7 @@ def main():
             show_birthday(*args, book)
 
         elif command == "birthdays":
-            bd_list = book.get_upcoming_birthdays()
-            for i in bd_list:
-                print(i)
+            book.show_upcoming_birthdays()
         elif command == "fill":
             
             for i in mock():
@@ -109,5 +132,5 @@ def main():
         else:
             print("Invalid command.")
 
-
-main()
+file_path = get_path(__file__, "contacts.txt")
+main(AddressBook(FileStorage(file_path)))

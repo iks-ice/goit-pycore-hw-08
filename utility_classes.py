@@ -1,7 +1,8 @@
 from datetime import date, timedelta
 from re import sub
 from collections import UserDict
-
+from storagestrategy import FileStorage
+import traceback
 class Field:
     def __init__(self, value):
         self.value = value
@@ -87,6 +88,29 @@ class Record:
         return f"Contact name: {self.name.value}, phones: {'; '.join(p.value for p in self.phones)}, birthday: {self.birthday}"
 
 class AddressBook(UserDict[str, Record]):
+    
+    def __init__(self, storage: FileStorage):
+        self._data = {}
+        self.storage = storage
+        super().__init__()
+
+    @property
+    def data(self):
+        if len(self._data.keys()):
+            return self._data
+        self._data = self.storage.load()
+        return self._data
+
+    @data.setter
+    def data(self, value):
+        self._data = value
+        self.save()
+
+    def load(self) -> UserDict[str, Record]:
+        return self.storage.load()
+    
+    def save(self) -> None:
+        self.storage.save(self._data)
 
     def add_record(self, record: Record):
         if not isinstance(record, Record):
@@ -95,32 +119,25 @@ class AddressBook(UserDict[str, Record]):
         self.data[record.name.value] = record
 
     def find(self, name) -> Record:
-        if name not in self.data:
-            raise ValueError("Record not found")
-        return self.data[name]
+        return self.data.get(name)
     
     def delete(self, name):
         del self.data[name]
 
     def get_upcoming_birthdays(self, from_date = None) -> list[ContactCongratulation]:
-
-        weekdays = (5, 6)
-        
+        weekdays = (5, 6) 
         today_date = date.today()
 
         if from_date is not None:
             today_date = date.strptime(from_date, Birthday.DATE_FORMAT)
         
         current_year = today_date.year
-
         bd_list = []
-
         for name, record in self.data.items():
             if record.birthday is None:
                 continue
 
             birth_date = record.birthday.value
-
             congrats_date = birth_date.replace(year = current_year)
 
             if congrats_date < today_date:
@@ -129,15 +146,19 @@ class AddressBook(UserDict[str, Record]):
             days_left = (congrats_date - today_date).days
             
             if -1 < days_left < 8:
-
                 weekday = congrats_date.weekday()
-
                 if weekday in weekdays:
                     congrats_date = congrats_date + timedelta(days = 7 - weekday)
 
-                bd_list.append(ContactCongratulation(congrats_date.strftime(Birthday.DATE_FORMAT), name))    
+                bd_list.append(ContactCongratulation(congrats_date.strftime(Birthday.DATE_FORMAT), name))   
 
         return bd_list
+    
+    def show_upcoming_birthdays(self):
+        bd_list = self.get_upcoming_birthdays()
+        for bd in bd_list:
+            print(bd)
+
 
     def __str__(self):
         s = ""
